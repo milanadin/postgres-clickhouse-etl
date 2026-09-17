@@ -1,6 +1,6 @@
 CREATE TABLE transactions(
 	uuid UUID PRIMARY KEY,
-	bank_id VARCHAR(50),
+	bank_id VARCHAR(10),
 	sender_account VARCHAR(20),
 	receiver_account VARCHAR(20),
 	amount DECIMAL(18, 2),

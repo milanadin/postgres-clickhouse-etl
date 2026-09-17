@@ -18,12 +18,36 @@ const (
 	EUR Currency = "EUR"
 )
 
+type CurrencyISO int
+
+const (
+	RUBISO CurrencyISO = 643
+	USDISO CurrencyISO = 840
+	EURISO CurrencyISO = 978
+)
+
 type Status string
 
 const (
 	StatusPending Status = "Pending"
 	StatusSuccess Status = "Success"
 	StatusFailed  Status = "Failed"
+)
+
+type StatusExternal string
+
+const (
+	StatusCompleted    StatusExternal = "Completed"
+	StatusInProcessing StatusExternal = "In processing"
+	StatusRejected     StatusExternal = "Rejected"
+)
+
+type StatusCode int
+
+const (
+	StatusCodePending StatusCode = 2
+	StatusCodeSuccess StatusCode = 1
+	StatusCodeFailed  StatusCode = 0
 )
 
 type Transaction struct {
