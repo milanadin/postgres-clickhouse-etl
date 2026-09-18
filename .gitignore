@@ -25,7 +25,9 @@ go.work
 go.work.sum
 
 # env file
-.env
+.env.bank_a
+.env.bank_b
+.env.bank_c
 
 # Editor/IDE
 # .idea/
