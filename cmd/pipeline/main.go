@@ -13,8 +13,10 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
+	"github.com/milana-dev/postgres-clickhouse-etl/internal/cursor"
 	"github.com/milana-dev/postgres-clickhouse-etl/internal/extractor"
 	"github.com/milana-dev/postgres-clickhouse-etl/internal/loader"
+	"github.com/milana-dev/postgres-clickhouse-etl/internal/models"
 	"github.com/milana-dev/postgres-clickhouse-etl/internal/transform"
 )
 
@@ -70,11 +72,8 @@ func connect(ctx context.Context, envFile string) (clickhouse.Conn, error) {
 
 func main() {
 
-	signalCtx, stopSignal := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	ctx, stopSignal := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stopSignal()
-
-	ctx, cancel := context.WithTimeout(signalCtx, 10*time.Second)
-	defer cancel()
 
 	poolA, err := newPool(ctx, ".env.bank_a")
 	if err != nil {
@@ -100,9 +99,33 @@ func main() {
 	}
 	defer conn.Close()
 
-	chA := transform.NormalizeBankA(ctx, extractor.ExtractorBankA(ctx, poolA, time.Time{}, 500, 1*time.Second))
-	chB := transform.NormalizeBankB(ctx, extractor.ExtractorBankB(ctx, poolB, time.Time{}, 500, 1*time.Second))
-	chC := transform.NormalizeBankC(ctx, extractor.ExtractorBankC(ctx, poolC, 0, uuid.Nil, 500, 1*time.Second))
+	cursorA, cursorUUIDA, err := cursor.Last(ctx, conn, "bank_a")
+	if err != nil {
+		log.Fatalf("unable to get cursor for bank A: %v", err)
+	}
+
+	chA := transform.NormalizeBankA(ctx, extractor.ExtractorBankA(ctx, poolA, cursorA, cursorUUIDA, 500, 1*time.Second))
+
+	cursorB, cursorUUIDB, err := cursor.Last(ctx, conn, "bank_b")
+	if err != nil {
+		log.Fatalf("unable to get cursor for bank B: %v", err)
+	}
+
+	chB := transform.NormalizeBankB(ctx, extractor.ExtractorBankB(ctx, poolB, cursorB, cursorUUIDB, 500, 1*time.Second))
+
+	cursorC, cursorUUIDC, err := cursor.Last(ctx, conn, "bank_c")
+	if err != nil {
+		log.Fatalf("unable to get cursor for bank c: %v", err)
+	}
+
+	var chC <-chan models.Transaction
+
+	if cursorUUIDC == uuid.Nil {
+		chC = transform.NormalizeBankC(ctx, extractor.ExtractorBankC(ctx, poolC, 0, cursorUUIDC, 500, 1*time.Second))
+	} else {
+		chC = transform.NormalizeBankC(ctx, extractor.ExtractorBankC(ctx, poolC, cursorC.Unix(), cursorUUIDC, 500, 1*time.Second))
+	}
+
 	res := transform.Merge(ctx, chA, chB, chC)
 	batch := loader.Batch(ctx, res, 10, 5*time.Second)
 	err = loader.Load(ctx, conn, batch, 3, time.Second)

@@ -6,5 +6,6 @@ CREATE TABLE transactions(
 	amount DECIMAL(18, 2),
 	currency VARCHAR(5),
 	occurred_at TIMESTAMP WITH TIME ZONE,
+	update_at TIMESTAMP WITH TIME ZONE,
 	status VARCHAR(10)
 )

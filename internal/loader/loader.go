@@ -6,10 +6,10 @@ import (
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
-	"github.com/milana-dev/postgres-clickhouse-etl/internal/transform"
+	"github.com/milana-dev/postgres-clickhouse-etl/internal/models"
 )
 
-func writeBatch(ctx context.Context, conn clickhouse.Conn, txs []transform.Transaction) error {
+func writeBatch(ctx context.Context, conn clickhouse.Conn, txs []models.Transaction) error {
 
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO transactions")
 	if err != nil {
@@ -25,6 +25,7 @@ func writeBatch(ctx context.Context, conn clickhouse.Conn, txs []transform.Trans
 			t.Amount,
 			string(t.Currency),
 			t.Timestamp,
+			t.UpdateAt,
 			string(t.Status),
 		)
 		if err != nil {
@@ -39,9 +40,9 @@ func writeBatch(ctx context.Context, conn clickhouse.Conn, txs []transform.Trans
 	return nil
 }
 
-func Load(ctx context.Context, conn clickhouse.Conn, input <-chan []transform.Transaction, maxAttempts int, replay time.Duration) error {
+func Load(ctx context.Context, conn clickhouse.Conn, input <-chan []models.Transaction, maxAttempts int, replay time.Duration) error {
 	for {
-		var txs []transform.Transaction
+		var txs []models.Transaction
 		select {
 		case <-ctx.Done():
 			return ctx.Err()

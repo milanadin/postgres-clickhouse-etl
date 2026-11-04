@@ -4,12 +4,12 @@ import (
 	"context"
 	"time"
 
-	"github.com/milana-dev/postgres-clickhouse-etl/internal/transform"
+	"github.com/milana-dev/postgres-clickhouse-etl/internal/models"
 )
 
-func Batch(ctx context.Context, in <-chan transform.Transaction, size int, timeout time.Duration) <-chan []transform.Transaction {
-	out := make(chan []transform.Transaction)
-	s := make([]transform.Transaction, 0, size)
+func Batch(ctx context.Context, in <-chan models.Transaction, size int, timeout time.Duration) <-chan []models.Transaction {
+	out := make(chan []models.Transaction)
+	s := make([]models.Transaction, 0, size)
 	go func() {
 		ticker := time.NewTicker(timeout)
 		defer ticker.Stop()
@@ -34,7 +34,7 @@ func Batch(ctx context.Context, in <-chan transform.Transaction, size int, timeo
 					case <-ctx.Done():
 						return
 					}
-					s = make([]transform.Transaction, 0, size)
+					s = make([]models.Transaction, 0, size)
 					ticker.Reset(timeout)
 				}
 			case <-ticker.C:
@@ -44,7 +44,7 @@ func Batch(ctx context.Context, in <-chan transform.Transaction, size int, timeo
 					case <-ctx.Done():
 						return
 					}
-					s = make([]transform.Transaction, 0, size)
+					s = make([]models.Transaction, 0, size)
 				}
 			case <-ctx.Done():
 				return

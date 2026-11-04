@@ -5,97 +5,45 @@ import (
 	"log"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/milana-dev/postgres-clickhouse-etl/internal/extractor"
+	"github.com/milana-dev/postgres-clickhouse-etl/internal/models"
 
 	"github.com/shopspring/decimal"
 )
 
-type Currency string
-
-const (
-	RUB Currency = "RUB"
-	USD Currency = "USD"
-	EUR Currency = "EUR"
-)
-
-type CurrencyISO int
-
-const (
-	RUBISO CurrencyISO = 643
-	USDISO CurrencyISO = 840
-	EURISO CurrencyISO = 978
-)
-
-type Status string
-
-const (
-	StatusPending Status = "Pending"
-	StatusSuccess Status = "Success"
-	StatusFailed  Status = "Failed"
-)
-
-type StatusExternal string
-
-const (
-	StatusCompleted    StatusExternal = "Completed"
-	StatusInProcessing StatusExternal = "In processing"
-	StatusRejected     StatusExternal = "Rejected"
-)
-
-type StatusCode int
-
-const (
-	StatusCodePending StatusCode = 2
-	StatusCodeSuccess StatusCode = 1
-	StatusCodeFailed  StatusCode = 0
-)
-
-type Transaction struct {
-	UUID            uuid.UUID
-	BankID          string
-	SenderAccount   string
-	ReceiverAccount string
-	Amount          decimal.Decimal
-	Currency        Currency
-	Timestamp       time.Time
-	Status          Status
-}
-
-func convertStatusB(status StatusExternal) (Status, bool) {
+func convertStatusB(status models.StatusExternal) (models.Status, bool) {
 	switch status {
-	case StatusCompleted:
-		return StatusSuccess, true
-	case StatusInProcessing:
-		return StatusPending, true
-	case StatusRejected:
-		return StatusFailed, true
+	case models.StatusCompleted:
+		return models.StatusSuccess, true
+	case models.StatusInProcessing:
+		return models.StatusPending, true
+	case models.StatusRejected:
+		return models.StatusFailed, true
 	default:
 		return "", false
 	}
 }
 
-func convertStatusC(status StatusCode) (Status, bool) {
+func convertStatusC(status models.StatusCode) (models.Status, bool) {
 	switch status {
-	case StatusCodeSuccess:
-		return StatusSuccess, true
-	case StatusCodePending:
-		return StatusPending, true
-	case StatusCodeFailed:
-		return StatusFailed, true
+	case models.StatusCodeSuccess:
+		return models.StatusSuccess, true
+	case models.StatusCodePending:
+		return models.StatusPending, true
+	case models.StatusCodeFailed:
+		return models.StatusFailed, true
 	default:
 		return "", false
 	}
 }
 
-func convertCurrencyC(currency CurrencyISO) (Currency, bool) {
+func convertCurrencyC(currency models.CurrencyISO) (models.Currency, bool) {
 	switch currency {
-	case RUBISO:
-		return RUB, true
-	case USDISO:
-		return USD, true
-	case EURISO:
-		return EUR, true
+	case models.RUBISO:
+		return models.RUB, true
+	case models.USDISO:
+		return models.USD, true
+	case models.EURISO:
+		return models.EUR, true
 	default:
 		return "", false
 	}
@@ -106,8 +54,8 @@ func convertTimeC(timeUnix int64) time.Time {
 	return t
 }
 
-func NormalizeBankA(ctx context.Context, in <-chan extractor.TransactionBankA) <-chan Transaction {
-	out := make(chan Transaction)
+func NormalizeBankA(ctx context.Context, in <-chan models.TransactionBankA) <-chan models.Transaction {
+	out := make(chan models.Transaction)
 
 	go func() {
 		defer close(out)
@@ -122,15 +70,16 @@ func NormalizeBankA(ctx context.Context, in <-chan extractor.TransactionBankA) <
 				select {
 				case <-ctx.Done():
 					return
-				case out <- Transaction{
+				case out <- models.Transaction{
 					UUID:            a.UUID,
 					BankID:          a.BankID,
 					SenderAccount:   a.SenderAccount,
 					ReceiverAccount: a.ReceiverAccount,
 					Amount:          a.Amount,
-					Currency:        Currency(a.Currency),
+					Currency:        models.Currency(a.Currency),
 					Timestamp:       a.OccurredAt.UTC(),
-					Status:          Status(a.Status),
+					UpdateAt:        a.UpdateAt.UTC(),
+					Status:          models.Status(a.Status),
 				}:
 				}
 			}
@@ -139,8 +88,8 @@ func NormalizeBankA(ctx context.Context, in <-chan extractor.TransactionBankA) <
 	return out
 }
 
-func NormalizeBankB(ctx context.Context, in <-chan extractor.TransactionBankB) <-chan Transaction {
-	out := make(chan Transaction)
+func NormalizeBankB(ctx context.Context, in <-chan models.TransactionBankB) <-chan models.Transaction {
+	out := make(chan models.Transaction)
 	go func() {
 		defer close(out)
 		for {
@@ -151,7 +100,7 @@ func NormalizeBankB(ctx context.Context, in <-chan extractor.TransactionBankB) <
 				if !ok {
 					return
 				}
-				status, valid := convertStatusB(StatusExternal(b.Status))
+				status, valid := convertStatusB(models.StatusExternal(b.Status))
 				if !valid {
 					log.Printf("bank B: unknown status %q, uuid %s", b.Status, b.UUID)
 					continue
@@ -159,14 +108,15 @@ func NormalizeBankB(ctx context.Context, in <-chan extractor.TransactionBankB) <
 				select {
 				case <-ctx.Done():
 					return
-				case out <- Transaction{
+				case out <- models.Transaction{
 					UUID:            b.UUID,
 					BankID:          b.BankID,
 					SenderAccount:   b.FromAccount,
 					ReceiverAccount: b.ToAccount,
 					Amount:          decimal.New(b.Amount, -2),
-					Currency:        Currency(b.Currency),
+					Currency:        models.Currency(b.Currency),
 					Timestamp:       b.TransactionTime.UTC(),
+					UpdateAt:        b.UpdateAt.UTC(),
 					Status:          status,
 				}:
 				}
@@ -177,8 +127,8 @@ func NormalizeBankB(ctx context.Context, in <-chan extractor.TransactionBankB) <
 	return out
 }
 
-func NormalizeBankC(ctx context.Context, in <-chan extractor.TransactionBankC) <-chan Transaction {
-	out := make(chan Transaction)
+func NormalizeBankC(ctx context.Context, in <-chan models.TransactionBankC) <-chan models.Transaction {
+	out := make(chan models.Transaction)
 	go func() {
 		defer close(out)
 		for {
@@ -189,12 +139,12 @@ func NormalizeBankC(ctx context.Context, in <-chan extractor.TransactionBankC) <
 				if !ok {
 					return
 				}
-				status, valid := convertStatusC(StatusCode(c.Status))
+				status, valid := convertStatusC(models.StatusCode(c.Status))
 				if !valid {
 					log.Printf("bank C: unknown status %d, uuid %s", c.Status, c.UUID)
 					continue
 				}
-				currency, valid := convertCurrencyC(CurrencyISO(c.Currency))
+				currency, valid := convertCurrencyC(models.CurrencyISO(c.Currency))
 				if !valid {
 					log.Printf("bank C: unknown currency %d, uuid %s", c.Currency, c.UUID)
 					continue
@@ -202,7 +152,7 @@ func NormalizeBankC(ctx context.Context, in <-chan extractor.TransactionBankC) <
 				select {
 				case <-ctx.Done():
 					return
-				case out <- Transaction{
+				case out <- models.Transaction{
 					UUID:            c.UUID,
 					BankID:          c.BankID,
 					SenderAccount:   c.FromAccount,
@@ -210,6 +160,7 @@ func NormalizeBankC(ctx context.Context, in <-chan extractor.TransactionBankC) <
 					Amount:          c.Amount,
 					Currency:        currency,
 					Timestamp:       convertTimeC(c.Unixtime).UTC(),
+					UpdateAt:        convertTimeC(c.UpdateAt).UTC(),
 					Status:          status,
 				}:
 				}

@@ -3,10 +3,12 @@ package transform
 import (
 	"context"
 	"sync"
+
+	"github.com/milana-dev/postgres-clickhouse-etl/internal/models"
 )
 
-func Merge(ctx context.Context, inputChannels ...<-chan Transaction) <-chan Transaction {
-	out := make(chan Transaction)
+func Merge(ctx context.Context, inputChannels ...<-chan models.Transaction) <-chan models.Transaction {
+	out := make(chan models.Transaction)
 	var wg sync.WaitGroup
 	for _, ch := range inputChannels {
 		wg.Add(1)

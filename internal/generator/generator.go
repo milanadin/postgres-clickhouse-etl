@@ -7,59 +7,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/milana-dev/postgres-clickhouse-etl/internal/models"
 	"github.com/shopspring/decimal"
 )
-
-type Currency string
-
-const (
-	RUB Currency = "RUB"
-	USD Currency = "USD"
-	EUR Currency = "EUR"
-)
-
-type CurrencyISO int
-
-const (
-	RUBISO CurrencyISO = 643
-	USDISO CurrencyISO = 840
-	EURISO CurrencyISO = 978
-)
-
-type Status string
-
-const (
-	StatusPending Status = "Pending"
-	StatusSuccess Status = "Success"
-	StatusFailed  Status = "Failed"
-)
-
-type StatusExternal string
-
-const (
-	StatusCompleted    StatusExternal = "Completed"
-	StatusInProcessing StatusExternal = "In processing"
-	StatusRejected     StatusExternal = "Rejected"
-)
-
-type StatusCode int
-
-const (
-	StatusCodePending StatusCode = 2
-	StatusCodeSuccess StatusCode = 1
-	StatusCodeFailed  StatusCode = 0
-)
-
-type Transaction struct {
-	UUID            uuid.UUID
-	BankID          string
-	SenderAccount   string
-	ReceiverAccount string
-	Amount          decimal.Decimal
-	Currency        Currency
-	Timestamp       time.Time
-	Status          Status
-}
 
 func accountGenerator() string {
 
@@ -83,33 +34,33 @@ func amountGenerator() decimal.Decimal {
 	return amount
 }
 
-func currencyGenerator() Currency {
+func currencyGenerator() models.Currency {
 	switch rand.IntN(3) {
 	case 0:
-		return RUB
+		return models.RUB
 	case 1:
-		return EUR
+		return models.EUR
 	case 2:
-		return USD
+		return models.USD
 	}
-	return RUB
+	return models.RUB
 }
 
-func statusGenerator() Status {
+func statusGenerator() models.Status {
 	n := rand.IntN(100)
 	switch {
+	case n < 50:
+		return models.StatusSuccess
 	case n < 90:
-		return StatusSuccess
-	case n < 95:
-		return StatusPending
+		return models.StatusPending
 	default:
-		return StatusFailed
+		return models.StatusFailed
 	}
 }
 
-func NewTransaction(bankID string) Transaction {
+func NewTransaction(bankID string) models.Transaction {
 
-	t := Transaction{
+	t := models.Transaction{
 		UUID:            uuid.New(),
 		BankID:          bankID,
 		SenderAccount:   accountGenerator(),
