@@ -6,5 +6,6 @@ CREATE TABLE transactions(
 	amount DECIMAL(18, 2),
 	currency INT,
 	unixtime BIGINT,
+	update_at BIGINT,
 	status INT
 )

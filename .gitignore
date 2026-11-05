@@ -28,7 +28,8 @@ go.work.sum
 .env.bank_a
 .env.bank_b
 .env.bank_c
+.env.clickhouse
 
 # Editor/IDE
-# .idea/
-# .vscode/
+.idea/
+.vscode/
